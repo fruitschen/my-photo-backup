@@ -3,7 +3,10 @@ from gooey import Gooey, GooeyParser
 import time
 import shutil
 import os.path
+import time
 import datetime
+from subprocess import Popen, PIPE
+from threading import Thread
 from PIL import Image
 from PIL.ExifTags import TAGS
 
@@ -36,6 +39,9 @@ def get_exif_data(filename):
         print 'IOERROR ' + filename
     return ret
 
+def get_m_timestamp(filename):
+    return datetime.datetime.fromtimestamp((os.path.getmtime(filename)))
+
 def get_timestamp(filename):
     exif_info = get_exif_data(filename)
     if 'DateTimeOriginal' in exif_info:
@@ -44,6 +50,20 @@ def get_timestamp(filename):
     else:
         return datetime.datetime.fromtimestamp((os.path.getctime(filename)))
 
+def get_size(f):
+    ps = Popen('du -sh {}'.format(f), shell=True, stdout=PIPE, stderr=PIPE)
+    output = ps.stdout.readlines()[0].strip()
+    size = output.split()[0]
+    return size
+
+def progress(source, target):
+    print 'calculating progress'
+    while True:
+        time.sleep(2)
+        if os.path.exists(source) and os.path.exists(target):
+            print '{}/{}'.format(get_size(target), get_size(source))
+        else:
+            pass
 
 @Gooey
 def main():
@@ -55,7 +75,11 @@ def main():
     target = args.target
     temp_target_dir = os.path.join(target, 'temp_backup')
     print 'Backup in progress'
+    t = Thread(target=progress, args=(source, temp_target_dir))
+    t.start()
     shutil.copytree(source, temp_target_dir)
+    t.join(timeout=1)
+
     print 'Backup done. '
     print 'Processing files'
 
@@ -71,6 +95,7 @@ def main():
             file_date = timestamp.strftime('%Y-%m-%d')
             result = {
                 'file': photo_path,
+                'type': 'photo',
                 'created': get_timestamp(photo_path),
                 'file_date': file_date,
                 'desired_filename': desired_filename,
@@ -81,7 +106,29 @@ def main():
                 results_by_month[file_month] = []
             results_by_month[file_month].append(result)
 
+        videos = filter(lambda x: '.avi' in x.lower() or '.mp4' in x.lower(), files)
+        for f in videos:
+            video_path = os.path.join(root, f)
+            ext = os.path.splitext(video_path)[-1]
+            timestamp = get_m_timestamp(video_path)
+            desired_filename = 'video_{}{}'.format(timestamp.strftime('%Y-%m-%d-%H%M%S'), ext)
+            file_month = timestamp.strftime('%Y-%m')
+            file_date = timestamp.strftime('%Y-%m-%d')
+            result = {
+                'file': video_path,
+                'type': 'video',
+                'created': timestamp,
+                'file_date': file_date,
+                'desired_filename': desired_filename,
+            }
+            if file_month in results_by_month:
+                pass
+            else:
+                results_by_month[file_month] = []
+            results_by_month[file_month].append(result)
+
     photos_count = 0
+    videos_count = 0
     for month, results in results_by_month.items():
         print 'Processing for {}'.format(month)
         print '{} files'.format(len(results))
@@ -95,7 +142,10 @@ def main():
                 os.makedirs(date_dir)
             desired_path = os.path.join(date_dir, result['desired_filename'])
             mv(result['file'], desired_path)
-            photos_count += 1
+            if result['type'] == 'photo':
+                photos_count += 1
+            if result['type'] == 'video':
+                videos_count += 1
 
     os.rename(temp_target_dir, temp_target_dir.replace('temp_backup', 'backup_{}'.format(datetime.datetime.now().strftime('%Y-%m-%d-%H%M'))))
 
