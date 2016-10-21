@@ -110,7 +110,8 @@ def main():
                 results_by_month[file_month] = []
             results_by_month[file_month].append(result)
 
-        videos = filter(lambda x: '.avi' in x.lower() or '.mp4' in x.lower(), files)
+        video_formats = ['.avi', '.mp4', '.mts']
+        videos = filter(lambda x: os.path.splitext(x.lower())[1] in video_formats, files)
         for f in videos:
             video_path = os.path.join(root, f)
             ext = os.path.splitext(video_path)[-1]
