@@ -40,7 +40,11 @@ def get_exif_data(filename):
     return ret
 
 def get_m_timestamp(filename):
-    return datetime.datetime.fromtimestamp((os.path.getmtime(filename)))
+    modified = os.path.getmtime(filename)
+    accessed = os.path.getatime(filename)
+    created = os.path.getctime(filename)
+    t = created or accessed or modified
+    return datetime.datetime.fromtimestamp(t)
 
 def get_timestamp(filename):
     exif_info = get_exif_data(filename)
