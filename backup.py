@@ -79,11 +79,41 @@ def get_original_filename(path):
     return os.path.split(os.path.splitext(path)[0])[-1]
 
 
+def should_ignore(cur_dir, items):
+    items_to_ignore = []
+    if 'cache' in items:
+        items_to_ignore.append('cache')
+    thumbnails = filter(lambda x: x.endswith('.thumbnail'), items)
+    if thumbnails:
+        items_to_ignore.extend(thumbnails)
+    return items_to_ignore
+
+
+def get_defaults():
+    default_arguments = {}
+    default_dest = u'/media/fruitschen/新加卷/小树照片temp'
+    if os.path.exists(default_dest):
+        default_arguments.update({
+            'default_dest': default_dest,
+        })
+    possible_default_froms = [
+        '/media/fruitschen/EOS_DIGITAL/DCIM/100CANON',
+        u'/run/user/1000/gvfs/mtp:host=%5Busb%3A003%2C005%5D/内部存储/DCIM/Camera',
+    ]
+    for default_from in possible_default_froms:
+        if os.path.exists(default_from):
+            default_arguments.update({
+                'default_from': default_from,
+            })
+    return default_arguments
+
+
 @Gooey
 def main():
-    parser = GooeyParser(description="My Cool GUI Program!")
-    parser.add_argument('source', widget="DirChooser")
-    parser.add_argument('target', widget="DirChooser", )
+    default_arguments = get_defaults()
+    parser = GooeyParser(description="My Photo Backup Program", )
+    parser.add_argument('source', widget="DirChooser", default=default_arguments.get('default_from', ''))
+    parser.add_argument('target', widget="DirChooser", default=default_arguments.get('default_dest', ''))
     parser.add_argument("-a", "--append_timestamp", action="store_true",
                         help="append timestamp and keep original filename")
     
@@ -95,7 +125,7 @@ def main():
     print 'Backup in progress'
     t = Thread(target=progress, args=(source, temp_target_dir))
     t.start()
-    shutil.copytree(source, temp_target_dir)
+    shutil.copytree(source, temp_target_dir, ignore=should_ignore)
     t.join(timeout=1)
     
     print 'Backup done. '
