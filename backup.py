@@ -1,6 +1,5 @@
 # coding: utf-8
 from gooey import Gooey, GooeyParser
-import time
 import shutil
 import os.path
 import time
@@ -9,6 +8,7 @@ from subprocess import Popen, PIPE
 from threading import Thread
 from PIL import Image
 from PIL.ExifTags import TAGS
+
 
 def mv(src, dest):
     num = 1
@@ -21,6 +21,7 @@ def mv(src, dest):
             num += 1
     shutil.move(src, dest)
 
+
 def get_exif_data(filename):
     """Get embedded EXIF data from image file.
     Source: <a href="http://www.endlesslycurious.com/2011/05/11/extracting-image-">
@@ -29,15 +30,16 @@ def get_exif_data(filename):
     ret = {}
     try:
         img = Image.open(filename)
-        if hasattr( img, '_getexif' ):
-            exifinfo = img._getexif()
-            if exifinfo != None:
-                for tag, value in exifinfo.items():
+        if hasattr(img, '_getexif'):
+            exif_info = img._getexif()
+            if exif_info is not None:
+                for tag, value in exif_info.items():
                     decoded = TAGS.get(tag, tag)
                     ret[decoded] = value
     except IOError:
         print 'IOERROR ' + filename
     return ret
+
 
 def get_m_timestamp(filename):
     modified = os.path.getmtime(filename)
@@ -45,6 +47,7 @@ def get_m_timestamp(filename):
     created = os.path.getctime(filename)
     t = min(modified, accessed, created)
     return datetime.datetime.fromtimestamp(t)
+
 
 def get_timestamp(filename):
     exif_info = get_exif_data(filename)
@@ -54,11 +57,13 @@ def get_timestamp(filename):
     else:
         return datetime.datetime.fromtimestamp((os.path.getctime(filename)))
 
+
 def get_size(f):
     ps = Popen('du -sh {}'.format(f), shell=True, stdout=PIPE, stderr=PIPE)
     output = ps.stdout.readlines()[0].strip()
     size = output.split()[0]
     return size
+
 
 def progress(source, target):
     print 'calculating progress'
@@ -69,16 +74,19 @@ def progress(source, target):
         else:
             pass
 
+
 def get_original_filename(path):
     return os.path.split(os.path.splitext(path)[0])[-1]
+
 
 @Gooey
 def main():
     parser = GooeyParser(description="My Cool GUI Program!")
     parser.add_argument('source', widget="DirChooser")
-    parser.add_argument('target', widget="DirChooser",)
-    parser.add_argument("-a", "--append_timestamp", action="store_true", help="append timestamp and keep original filename")
-
+    parser.add_argument('target', widget="DirChooser", )
+    parser.add_argument("-a", "--append_timestamp", action="store_true",
+                        help="append timestamp and keep original filename")
+    
     args = parser.parse_args()
     source = args.source
     target = args.target
@@ -89,12 +97,12 @@ def main():
     t.start()
     shutil.copytree(source, temp_target_dir)
     t.join(timeout=1)
-
+    
     print 'Backup done. '
     print 'Processing files'
-
+    
     results_by_month = {}
-
+    
     for root, dirs, files in os.walk(temp_target_dir):
         photos = filter(lambda x: '.jpg' in x.lower(), files)
         for f in photos:
@@ -119,7 +127,7 @@ def main():
             else:
                 results_by_month[file_month] = []
             results_by_month[file_month].append(result)
-
+        
         video_formats = ['.avi', '.mp4', '.mts']
         videos = filter(lambda x: os.path.splitext(x.lower())[1] in video_formats, files)
         for f in videos:
@@ -145,7 +153,7 @@ def main():
             else:
                 results_by_month[file_month] = []
             results_by_month[file_month].append(result)
-
+    
     photos_count = 0
     videos_count = 0
     for month, results in results_by_month.items():
@@ -165,13 +173,13 @@ def main():
                 photos_count += 1
             if result['type'] == 'video':
                 videos_count += 1
-
-    os.rename(temp_target_dir, temp_target_dir.replace('temp_backup', 'backup_{}'.format(datetime.datetime.now().strftime('%Y-%m-%d-%H%M'))))
-
+    
+    os.rename(temp_target_dir, temp_target_dir.replace('temp_backup', 'backup_{}'.format(
+        datetime.datetime.now().strftime('%Y-%m-%d-%H%M'))))
+    
     print 'Done processing photos'
     print '{} photos'.format(photos_count)
 
+
 if __name__ == '__main__':
     main()
-
-
