@@ -43,7 +43,7 @@ def get_m_timestamp(filename):
     modified = os.path.getmtime(filename)
     accessed = os.path.getatime(filename)
     created = os.path.getctime(filename)
-    t = created or accessed or modified
+    t = min(modified, accessed, created)
     return datetime.datetime.fromtimestamp(t)
 
 def get_timestamp(filename):
@@ -69,14 +69,20 @@ def progress(source, target):
         else:
             pass
 
+def get_original_filename(path):
+    return os.path.split(os.path.splitext(path)[0])[-1]
+
 @Gooey
 def main():
     parser = GooeyParser(description="My Cool GUI Program!")
     parser.add_argument('source', widget="DirChooser")
-    parser.add_argument('target', widget="DirChooser")
+    parser.add_argument('target', widget="DirChooser",)
+    parser.add_argument("-a", "--append_timestamp", action="store_true", help="append timestamp and keep original filename")
+
     args = parser.parse_args()
     source = args.source
     target = args.target
+    append_timestamp = args.append_timestamp
     temp_target_dir = os.path.join(target, 'temp_backup')
     print 'Backup in progress'
     t = Thread(target=progress, args=(source, temp_target_dir))
@@ -94,7 +100,11 @@ def main():
         for f in photos:
             photo_path = os.path.join(root, f)
             timestamp = get_timestamp(photo_path)
-            desired_filename = 'IMG_{}.jpg'.format(timestamp.strftime('%Y-%m-%d-%H%M%S'))
+            original_filename = get_original_filename(photo_path)
+            extra = ''
+            if append_timestamp:
+                extra = original_filename
+            desired_filename = 'IMG_{}{}.jpg'.format(timestamp.strftime('%Y-%m-%d-%H%M%S'), extra)
             file_month = timestamp.strftime('%Y-%m')
             file_date = timestamp.strftime('%Y-%m-%d')
             result = {
@@ -116,7 +126,11 @@ def main():
             video_path = os.path.join(root, f)
             ext = os.path.splitext(video_path)[-1]
             timestamp = get_m_timestamp(video_path)
-            desired_filename = 'video_{}{}'.format(timestamp.strftime('%Y-%m-%d-%H%M%S'), ext)
+            original_filename = get_original_filename(video_path)
+            extra = ''
+            if append_timestamp:
+                extra = original_filename
+            desired_filename = 'video_{}{}{}'.format(timestamp.strftime('%Y-%m-%d-%H%M%S'), extra, ext)
             file_month = timestamp.strftime('%Y-%m')
             file_date = timestamp.strftime('%Y-%m-%d')
             result = {
